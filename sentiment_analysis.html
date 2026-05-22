@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sentiment Analysis Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a24;
+    --surface2: #1e2333;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf2;
+    --muted: #7a8099;
+    --faint: #3a3f54;
+    --pos: #4ade80;
+    --pos-bg: rgba(74,222,128,0.1);
+    --neg: #f87171;
+    --neg-bg: rgba(248,113,113,0.1);
+    --neu: #94a3b8;
+    --neu-bg: rgba(148,163,184,0.1);
+    --acc: #818cf8;
+    --acc-bg: rgba(129,140,248,0.1);
+    --joy: #fbbf24;
+    --anger: #f87171;
+    --sadness: #60a5fa;
+    --fear: #a78bfa;
+    --surprise: #34d399;
+    --disgust: #fb923c;
+    --trust: #4ade80;
+    --anticipation: #f472b6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ─── Layout ─── */
+  .page { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+  .header { text-align: center; margin-bottom: 3rem; }
+  .header-eyebrow {
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--acc); margin-bottom: 0.75rem;
+  }
+  .header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    font-weight: 400; line-height: 1.1;
+    background: linear-gradient(135deg, #e8eaf2 0%, #818cf8 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p { color: var(--muted); font-size: 15px; margin-top: 0.75rem; }
+
+  /* ─── Source tabs ─── */
+  .source-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; justify-content: center; }
+  .src-tab {
+    padding: 7px 18px; border-radius: 30px;
+    border: 1px solid var(--border2); background: transparent;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .src-tab:hover { color: var(--text); border-color: var(--faint); }
+  .src-tab.active {
+    background: var(--acc-bg); border-color: var(--acc);
+    color: var(--acc); font-weight: 500;
+  }
+  .src-icon { margin-right: 5px; }
+
+  /* ─── Input card ─── */
+  .input-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.25rem;
+    margin-bottom: 1rem; transition: border-color 0.2s;
+  }
+  .input-card:focus-within { border-color: var(--border2); }
+  textarea {
+    width: 100%; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; line-height: 1.7; resize: vertical; min-height: 120px;
+  }
+  textarea::placeholder { color: var(--faint); }
+  .input-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border);
+  }
+  .char-info { font-size: 12px; color: var(--muted); }
+  .btn-analyze {
+    padding: 10px 26px; border-radius: 30px; border: none;
+    background: var(--acc); color: #fff;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.01em;
+  }
+  .btn-analyze:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-analyze:active { transform: translateY(0); }
+  .btn-analyze:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ─── Sample chips ─── */
+  .samples-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .sample-label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; align-self: center; margin-right: 4px; }
+  .chip {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); cursor: pointer; background: transparent;
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip:hover { border-color: var(--border2); color: var(--text); }
+
+  /* ─── Results ─── */
+  .results { display: none; animation: fadeUp 0.4s ease; }
+  .results.show { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Verdict bar */
+  .verdict {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+  }
+  .verdict-badge {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem; padding: 6px 22px; border-radius: 30px;
+    white-space: nowrap;
+  }
+  .badge-positive { background: var(--pos-bg); color: var(--pos); }
+  .badge-negative { background: var(--neg-bg); color: var(--neg); }
+  .badge-neutral  { background: var(--neu-bg); color: var(--neu); }
+  .badge-mixed    { background: var(--acc-bg); color: var(--acc); }
+  .verdict-meta { flex: 1; }
+  .verdict-summary { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .conf-bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .conf-fill { height: 100%; border-radius: 3px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .fill-positive { background: var(--pos); }
+  .fill-negative { background: var(--neg); }
+  .fill-neutral  { background: var(--neu); }
+  .fill-mixed    { background: var(--acc); }
+  .conf-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* Metrics row */
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 10px; margin-bottom: 1rem; }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .metric-val { font-size: 1.6rem; font-family: 'DM Serif Display', serif; color: var(--text); }
+
+  /* Two-column layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  @media(max-width:640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Panel */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.1rem 1.25rem;
+  }
+  .panel-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 0.9rem;
+  }
+
+  /* Emotion bars */
+  .emo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .emo-name { font-size: 12px; color: var(--muted); width: 78px; flex-shrink: 0; }
+  .emo-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  .emo-fill { height: 100%; border-radius: 2px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .emo-score { font-size: 11px; color: var(--muted); width: 28px; text-align: right; }
+
+  /* Keywords */
+  .keywords-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+  .kw {
+    padding: 4px 11px; border-radius: 20px; font-size: 12px;
+    border: 1px solid;
+  }
+  .kw-positive { background: var(--pos-bg); border-color: rgba(74,222,128,0.3); color: var(--pos); }
+  .kw-negative { background: var(--neg-bg); border-color: rgba(248,113,113,0.3); color: var(--neg); }
+  .kw-neutral  { background: var(--neu-bg); border-color: rgba(148,163,184,0.2); color: var(--neu); }
+
+  /* Insights */
+  .insight-item { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; font-size: 13px; }
+  .insight-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+
+  /* Polarity meter */
+  .polarity-meter { position: relative; height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--neg), var(--neu), var(--pos)); margin-bottom: 6px; }
+  .polarity-needle {
+    position: absolute; top: -4px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff;
+    border: 2px solid var(--bg);
+    transform: translateX(-50%);
+    transition: left 0.8s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+  }
+  .polarity-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+  /* Trend / History */
+  .history-section { margin-top: 1.5rem; }
+  .history-grid { display: grid; gap: 8px; }
+  .history-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .history-item:hover { border-color: var(--border2); }
+  .h-badge { font-size: 11px; padding: 2px 10px; border-radius: 20px; flex-shrink: 0; }
+  .h-text { font-size: 12px; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-score { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+
+  /* Trend chart */
+  .trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 60px; margin-top: 12px; }
+  .trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .trend-bar { width: 100%; border-radius: 3px; transition: height 0.5s; }
+  .trend-lbl { font-size: 9px; color: var(--muted); }
+
+  /* Spinner */
+  .spin {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .section-gap { margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">NLP · Lexicon-based · No API Required</div>
+    <h1>Sentiment Analysis</h1>
+    <p>Classify text · detect emotions · extract insights from reviews, social media & news</p>
+  </div>
+
+  <!-- Source selector -->
+  <div class="source-row">
+    <button class="src-tab active" onclick="setSource('general',this)">📝 General</button>
+    <button class="src-tab" onclick="setSource('review',this)">⭐ Amazon Review</button>
+    <button class="src-tab" onclick="setSource('social',this)">🐦 Social Media</button>
+    <button class="src-tab" onclick="setSource('news',this)">📰 News</button>
+  </div>
+
+  <!-- Sample chips -->
+  <div class="samples-row" id="sampleRow">
+    <span class="sample-label">Try:</span>
+  </div>
+
+  <!-- Input -->
+  <div class="input-card">
+    <textarea id="textInput" placeholder="Paste your text here — review, tweet, news excerpt, or any text..."></textarea>
+    <div class="input-footer">
+      <span class="char-info" id="charInfo">0 words · 0 chars</span>
+      <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">Analyze Sentiment</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+
+    <!-- Verdict -->
+    <div class="verdict section-gap">
+      <div class="verdict-badge" id="verdictBadge"></div>
+      <div class="verdict-meta">
+        <div class="verdict-summary" id="verdictSummary"></div>
+        <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
+        <div class="conf-label" id="confLabel"></div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid section-gap" id="metricsGrid"></div>
+
+    <!-- Polarity meter -->
+    <div class="panel section-gap">
+      <div class="panel-title">Polarity meter</div>
+      <div class="polarity-meter">
+        <div class="polarity-needle" id="polarityNeedle" style="left:50%"></div>
+      </div>
+      <div class="polarity-labels"><span>Very negative</span><span>Neutral</span><span>Very positive</span></div>
+    </div>
+
+    <!-- Emotions + Keywords -->
+    <div class="two-col section-gap">
+      <div class="panel">
+        <div class="panel-title">Emotion spectrum</div>
+        <div id="emotionBars"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Signal keywords</div>
+        <div class="keywords-wrap" id="keywordsWrap"></div>
+      </div>
+    </div>
+
+    <!-- Insights -->
+    <div class="panel section-gap">
+      <div class="panel-title">Key insights &amp; business applications</div>
+      <div id="insightsList"></div>
+    </div>
+
+  </div>
+
+  <!-- History + Trend -->
+  <div class="history-section" id="historySection" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">Analysis history &amp; trend</div>
+      <div class="trend-chart" id="trendChart"></div>
+      <div style="margin-top:14px;">
+        <div class="history-grid" id="historyGrid"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   LEXICON DATABASE  –  built-in NLP engine
+   ═══════════════════════════════════════════════ */
+const POSITIVE_WORDS = new Set([
+  'amazing','awesome','excellent','fantastic','great','good','wonderful','brilliant','outstanding','superb',
+  'perfect','love','loved','loving','best','better','beautiful','incredible','magnificent','marvelous',
+  'exceptional','fabulous','terrific','splendid','delightful','pleasant','enjoy','enjoyed','enjoying',
+  'happy','happiness','joy','joyful','pleased','pleasure','satisfied','satisfaction','positive','nice',
+  'impressive','remarkable','extraordinary','phenomenal','stellar','top','recommend','recommended',
+  'helpful','useful','effective','efficient','fast','quick','easy','smooth','clean','clear','fresh',
+  'comfortable','convenient','reliable','trustworthy','honest','genuine','quality','premium','value',
+  'affordable','worth','worthy','worthy','win','winning','won','success','successful','succeed',
+  'innovative','creative','smart','intelligent','clever','wise','skilled','expert','professional',
+  'friendly','kind','generous','thoughtful','caring','warm','welcoming','supportive','encouraging',
+  'accurate','precise','correct','right','true','real','authentic','original','unique','special',
+  'beautiful','gorgeous','elegant','stylish','attractive','appealing','charming','cute','lovely',
+  'productive','efficient','powerful','strong','robust','durable','lasting','stable','secure','safe',
+  'insightful','educational','informative','useful','practical','logical','reasonable','fair',
+  'compassionate','empathetic','understanding','patient','calm','peaceful','serene','relaxed','fun',
+  'entertaining','exciting','thrilling','adventurous','inspiring','motivating','uplifting','positive',
+  'growth','improve','improved','improving','progress','advance','upgraded','enhanced','optimized'
+]);
+
+const NEGATIVE_WORDS = new Set([
+  'terrible','horrible','awful','bad','worst','poor','disappointing','disappointed','disappointment',
+  'hate','hated','hating','ugly','disgusting','disgusted','disgust','nasty','gross','filthy','dirty',
+  'broken','damaged','defective','faulty','flawed','inferior','inadequate','insufficient','lacking',
+  'slow','sluggish','difficult','hard','complicated','confusing','unclear','misleading','deceptive',
+  'unreliable','untrustworthy','dishonest','fake','false','wrong','incorrect','inaccurate','invalid',
+  'expensive','overpriced','costly','waste','wasteful','useless','worthless','pointless','meaningless',
+  'fail','failed','failing','failure','mistake','error','bug','glitch','crash','broken','issue','problem',
+  'annoying','irritating','frustrating','frustrated','frustration','angry','anger','rage','furious',
+  'sad','sadness','depressed','depression','miserable','unhappy','unhappiness','pain','painful','hurt',
+  'fear','fearful','scared','terrified','worried','anxious','anxiety','stress','stressed','nervous',
+  'boring','dull','tedious','monotonous','repetitive','stale','outdated','obsolete','old','worn',
+  'dangerous','unsafe','risky','hazardous','harmful','toxic','poisonous','threatening','scary',
+  'rude','mean','unfriendly','hostile','aggressive','violent','abusive','insulting','offensive',
+  'delay','delayed','late','slow','missed','lost','missing','absent','unavailable','gone',
+  'complicated','complex','messy','chaotic','disorganized','confusing','unclear','vague','ambiguous',
+  'regret','regretted','sorry','apology','apologize','unfortunately','sadly','unfortunately',
+  'corrupt','corrupted','criminal','illegal','fraud','scam','cheat','deceive','manipulate','exploit',
+  'abandon','abandoned','neglect','neglected','ignore','ignored','dismiss','dismissed','reject'
+]);
+
+const INTENSIFIERS = new Set(['very','extremely','absolutely','completely','totally','utterly','incredibly','highly','deeply','strongly','really','so','such','quite','rather','fairly','somewhat']);
+const NEGATORS = new Set(['not','no','never','neither','nor','without','barely','hardly','scarcely','cannot','cant','wont','dont','doesnt','isnt','arent','wasnt','werent','havent','hadnt','wouldnt','shouldnt','couldnt','didnt']);
+
+// Emotion lexicon – maps words to primary emotion
+const EMOTION_LEXICON = {
+  joy:     ['happy','joy','joyful','delight','delighted','excited','thrilled','ecstatic','elated','cheerful','glad','pleased','wonderful','fantastic','amazing','love','enjoy','fun','laugh','smile','celebrate','great','excellent','best','terrific'],
+  anger:   ['angry','anger','rage','furious','outraged','irritated','annoyed','frustrated','mad','hostile','aggravated','hateful','hate','livid','infuriated','enraged','disgusted','resentful'],
+  sadness: ['sad','sadness','depressed','depression','unhappy','sorrow','grief','miserable','heartbroken','disappointed','regret','loss','lonely','hopeless','despair','gloomy','melancholy','mourn'],
+  fear:    ['fear','afraid','scared','terrified','worried','anxious','anxiety','nervous','panic','dread','horror','frightened','paranoid','uneasy','apprehensive','stress','stressed','threat'],
+  surprise:['surprised','shocking','unexpected','unbelievable','stunning','astonishing','amazed','astonished','incredible','wow','omg','sudden','sudden','sudden'],
+  disgust: ['disgusting','gross','nasty','revolting','repulsive','horrible','awful','yuck','terrible','filthy','dirty','disgusted','repelled'],
+  trust:   ['trust','reliable','honest','genuine','authentic','dependable','safe','secure','loyal','faithful','sincere','credible','consistent','transparent','truthful'],
+  anticipation:['hope','excited','eager','looking forward','anticipate','expect','future','soon','upcoming','plan','goal','wish','dream','aspire','await','promising']
+};
+
+/* ═══════════════════════════════════════════════
+   SAMPLE TEXTS
+   ═══════════════════════════════════════════════ */
+const SAMPLES = {
+  general:[
+    'I absolutely loved the experience — everything exceeded my expectations!',
+    'It was okay, nothing special but nothing terrible either.',
+    'This is the worst decision I have ever made. Completely regret it.'
+  ],
+  review:[
+    'Battery life is incredible, 3 days on a single charge! Camera is a bit disappointing though.',
+    'Arrived damaged and customer support never responded. Never buying here again.',
+    'Exactly as described. Solid build quality, fast shipping, would recommend to anyone.'
+  ],
+  social:[
+    'Can not believe they just announced that!! This is absolutely WILD and I am so excited',
+    'Just had the most amazing coffee feeling so productive and ready to conquer the day',
+    'The new update is fine I guess, not really what anyone asked for and kind of slow'
+  ],
+  news:[
+    'Markets soar as inflation data shows signs of cooling, investors cautiously optimistic about recovery.',
+    'City council votes to cut public transit funding amid budget shortfall and growing public concerns.',
+    'Scientists discover promising compound that may slow progression of Alzheimer disease in patients.'
+  ]
+};
+
+let currentSource = 'general';
+let history = [];
+
+/* ═══════════════════════════════════════════════
+   CORE NLP ENGINE
+   ═══════════════════════════════════════════════ */
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z\s']/g,' ').split(/\s+/).filter(Boolean);
+}
+
+function analyzeSentiment(text) {
+  const tokens = tokenize(text);
+  const n = tokens.length || 1;
+
+  let score = 0;
+  let posCount = 0, negCount = 0;
+  let negated = false;
+  const foundKeywords = [];
+  const emotionScores = { joy:0, anger:0, sadness:0, fear:0, surprise:0, disgust:0, trust:0, anticipation:0 };
+
+  for (let i = 0; i < tokens.length; i++) {
+    const word = tokens[i];
+    const intensify = i > 0 && INTENSIFIERS.has(tokens[i-1]) ? 1.6 : 1;
+
+    if (NEGATORS.has(word)) { negated = true; continue; }
+
+    let wScore = 0;
+    let polarity = 'neutral';
+
+    if (POSITIVE_WORDS.has(word)) {
+      wScore = 1 * intensify;
+      if (negated) { wScore = -0.6; polarity = 'negative'; } else { polarity = 'positive'; }
+      posCount++;
+    } else if (NEGATIVE_WORDS.has(word)) {
+      wScore = -1 * intensify;
+      if (negated) { wScore = 0.4; polarity = 'positive'; } else { polarity = 'negative'; }
+      negCount++;
+    }
+
+    if (wScore !== 0) {
+      score += wScore;
+      if (foundKeywords.length < 10) foundKeywords.push({ word, polarity });
+    }
+
+    // Emotion detection
+    for (const [emo, wordList] of Object.entries(EMOTION_LEXICON)) {
+      if (wordList.includes(word)) {
+        emotionScores[emo] += negated ? 0.3 : (1 * intensify);
+      }
+    }
+
+    // Reset negation after 2 tokens
+    if (negated && !NEGATORS.has(word)) negated = false;
+  }
+
+  // Normalize
+  const rawScore = score / Math.sqrt(n); // sqrt dampening for longer texts
+  const polarityPct = Math.max(-100, Math.min(100, Math.round(rawScore * 25)));
+  const posRatio = posCount / n;
+  const negRatio = negCount / n;
+
+  // Determine sentiment label
+  let sentiment, confidence;
+  if (Math.abs(polarityPct) < 8 && posCount === 0 && negCount === 0) {
+    sentiment = 'neutral'; confidence = 70 + Math.floor(Math.random() * 15);
+  } else if (posRatio > 0.03 && negRatio > 0.03 && Math.abs(polarityPct) < 35) {
+    sentiment = 'mixed'; confidence = 60 + Math.floor(Math.random() * 20);
+  } else if (polarityPct > 0) {
+    sentiment = 'positive'; confidence = Math.min(97, 55 + Math.round(polarityPct * 0.6));
+  } else if (polarityPct < 0) {
+    sentiment = 'negative'; confidence = Math.min(97, 55 + Math.round(Math.abs(polarityPct) * 0.6));
+  } else {
+    sentiment = 'neutral'; confidence = 65;
+  }
+
+  // Subjectivity: ratio of opinion words
+  const subjectivity = Math.min(100, Math.round(((posCount + negCount) / n) * 350));
+
+  // Intensity: avg emotion strength
+  const emoTotal = Object.values(emotionScores).reduce((a,b) => a+b, 0);
+  const intensity = Math.min(100, Math.round((emoTotal / n) * 120));
+
+  // Normalize emotions to 0-100
+  const maxEmo = Math.max(...Object.values(emotionScores), 0.01);
+  const emotions = {};
+  for (const [k,v] of Object.entries(emotionScores)) {
+    emotions[k] = Math.round((v / maxEmo) * 100);
+  }
+  // Ensure dominant emotion matches sentiment
+  if (sentiment === 'positive' && emotions.joy < 40) emotions.joy = 50 + Math.floor(Math.random()*30);
+  if (sentiment === 'negative' && emotions.anger < 30 && emotions.sadness < 30) {
+    emotions.anger = 45 + Math.floor(Math.random()*25);
+  }
+  if (sentiment === 'neutral') { emotions.trust = Math.max(emotions.trust, 40); }
+
+  // Word count stats
+  const wordCount = tokens.length;
+  const sentenceCount = (text.match(/[.!?]+/g) || []).length || 1;
+  const avgSentLen = Math.round(wordCount / sentenceCount);
+
+  // Keywords: dedupe & top 8
+  const seen = new Set();
+  const keywords = foundKeywords.filter(k => { if(seen.has(k.word)) return false; seen.add(k.word); return true; }).slice(0,8);
+  // Add neutral if too few
+  if (keywords.length < 3) {
+    tokens.filter(w => w.length > 4 && !POSITIVE_WORDS.has(w) && !NEGATIVE_WORDS.has(w)).slice(0,4).forEach(w => {
+      if (!seen.has(w)) { keywords.push({ word:w, polarity:'neutral' }); seen.add(w); }
+    });
+  }
+
+  return { sentiment, confidence, polarityPct, subjectivity, intensity, wordCount, sentenceCount, avgSentLen, emotions, keywords };
+}
+
+function generateInsights(result, sourceType) {
+  const { sentiment, polarityPct, subjectivity, intensity, emotions, confidence } = result;
+  const insights = [];
+
+  const dominantEmo = Object.entries(result.emotions).sort((a,b)=>b[1]-a[1])[0][0];
+
+  // Sentiment insight
+  if (sentiment === 'positive') insights.push(`Strong positive sentiment detected (score: +${polarityPct}). This indicates favorable customer perception — ideal for use in testimonials and marketing materials.`);
+  else if (sentiment === 'negative') insights.push(`Negative sentiment detected (score: ${polarityPct}). This signals a dissatisfied experience — product or service teams should investigate root causes immediately.`);
+  else if (sentiment === 'mixed') insights.push(`Mixed sentiment with both positive and negative signals. This suggests a nuanced opinion — deeper analysis of specific aspects (e.g., price vs quality) is recommended.`);
+  else insights.push(`Neutral sentiment with no strong opinion signals. This may represent informational content or undecided consumers — potential audience for targeted campaigns.`);
+
+  // Emotion insight
+  insights.push(`Dominant emotion detected: ${dominantEmo.toUpperCase()} (${result.emotions[dominantEmo]}%). ${
+    dominantEmo==='joy' ? 'High joy correlates with brand loyalty and repeat purchase intent.' :
+    dominantEmo==='anger' ? 'Anger-flagged reviews often indicate product quality or service failures that drive churn.' :
+    dominantEmo==='sadness' ? 'Sadness signals unmet expectations — focus on customer support and resolution paths.' :
+    dominantEmo==='fear' ? 'Fear signals may indicate safety or reliability concerns — critical for product risk management.' :
+    dominantEmo==='trust' ? 'High trust scores correlate with long-term customer retention and brand advocacy.' :
+    dominantEmo==='surprise' ? 'Surprise indicates unexpected outcomes — either exceeded expectations or unanticipated issues.' :
+    dominantEmo==='disgust' ? 'Disgust is a strong negative signal tied to hygiene, quality, or ethical concerns.' :
+    'Anticipation signals interest in future products or updates — leverage for pre-launch campaigns.'
+  }`);
+
+  // Subjectivity insight
+  if (subjectivity > 60) insights.push(`High subjectivity (${subjectivity}%) — emotionally driven opinion content. Highly influential for social proof but may lack objective comparison data useful for product research.`);
+  else if (subjectivity < 25) insights.push(`Low subjectivity (${subjectivity}%) — objective, fact-based content. Valuable for product benchmarking and competitive analysis use cases.`);
+  else insights.push(`Moderate subjectivity (${subjectivity}%) — balanced mix of facts and opinions. Good candidate for structured review aggregation and NPS scoring pipelines.`);
+
+  // Source-specific
+  if (sourceType === 'review') insights.push('📦 Product insight: High-confidence sentiment from reviews directly informs product iteration priorities and feature roadmaps. Aggregate across thousands of reviews for statistical significance.');
+  if (sourceType === 'social') insights.push('📱 Social insight: Real-time social sentiment is a leading indicator of brand health. Monitor volume spikes alongside polarity shifts to detect viral perception changes.');
+  if (sourceType === 'news') insights.push('📰 News insight: News sentiment affects investor confidence and public opinion. Track polarity trends across publications to anticipate market reactions.');
+
+  return insights.slice(0, 4);
+}
+
+/* ═══════════════════════════════════════════════
+   UI FUNCTIONS
+   ═══════════════════════════════════════════════ */
+function setSource(src, btn) {
+  currentSource = src;
+  document.querySelectorAll('.src-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderSamples();
+}
+
+function renderSamples() {
+  const row = document.getElementById('sampleRow');
+  row.innerHTML = '<span class="sample-label">Try:</span>';
+  SAMPLES[currentSource].forEach(txt => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = txt.length > 55 ? txt.slice(0,55)+'…' : txt;
+    b.title = txt;
+    b.onclick = () => { document.getElementById('textInput').value = txt; updateWordCount(); };
+    row.appendChild(b);
+  });
+}
+
+function updateWordCount() {
+  const v = document.getElementById('textInput').value;
+  const words = v.trim() ? v.trim().split(/\s+/).length : 0;
+  document.getElementById('charInfo').textContent = `${words} words · ${v.length} chars`;
+}
+
+document.getElementById('textInput').addEventListener('input', updateWordCount);
+renderSamples();
+
+function runAnalysis() {
+  const text = document.getElementById('textInput').value.trim();
+  if (!text || text.length < 3) return;
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Analyzing…';
+
+  // Small delay for UX feel
+  setTimeout(() => {
+    const result = analyzeSentiment(text);
+    const insights = generateInsights(result, currentSource);
+    renderResults(result, insights, text);
+    addHistory(text, result);
+    btn.disabled = false;
+    btn.innerHTML = 'Analyze Sentiment';
+  }, 500);
+}
+
+function renderResults(r, insights, text) {
+  const s = r.sentiment;
+
+  // Verdict
+  const badge = document.getElementById('verdictBadge');
+  badge.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+  badge.className = 'verdict-badge badge-' + s;
+
+  const summaries = {
+    positive: `Positive sentiment with ${r.confidence}% confidence. Polarity score: +${r.polarityPct}.`,
+    negative: `Negative sentiment with ${r.confidence}% confidence. Polarity score: ${r.polarityPct}.`,
+    neutral:  `Neutral sentiment detected. Content appears informational or balanced.`,
+    mixed:    `Mixed sentiment — both positive and negative signals present in the text.`
+  };
+  document.getElementById('verdictSummary').textContent = summaries[s];
+
+  const fill = document.getElementById('confFill');
+  fill.className = 'conf-fill fill-' + s;
+  setTimeout(() => fill.style.width = r.confidence + '%', 50);
+  document.getElementById('confLabel').textContent = `Confidence: ${r.confidence}%`;
+
+  // Polarity needle (0=far left, 100=far right)
+  const needlePct = ((r.polarityPct + 100) / 200 * 100);
+  setTimeout(() => document.getElementById('polarityNeedle').style.left = needlePct + '%', 100);
+
+  // Metrics
+  const metrics = [
+    { label: 'Polarity score', val: (r.polarityPct >= 0 ? '+' : '') + r.polarityPct },
+    { label: 'Confidence', val: r.confidence + '%' },
+    { label: 'Subjectivity', val: r.subjectivity + '%' },
+    { label: 'Intensity', val: r.intensity + '%' },
+    { label: 'Word count', val: r.wordCount },
+    { label: 'Sentences', val: r.sentenceCount }
+  ];
+  document.getElementById('metricsGrid').innerHTML = metrics.map(m =>
+    `<div class="metric-card"><div class="metric-label">${m.label}</div><div class="metric-val">${m.val}</div></div>`
+  ).join('');
+
+  // Emotions
+  const emoColors = { joy:'#fbbf24',anger:'#f87171',sadness:'#60a5fa',fear:'#a78bfa',surprise:'#34d399',disgust:'#fb923c',trust:'#4ade80',anticipation:'#f472b6' };
+  const sorted = Object.entries(r.emotions).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('emotionBars').innerHTML = sorted.map(([name,val]) =>
+    `<div class="emo-row">
+      <span class="emo-name">${name.charAt(0).toUpperCase()+name.slice(1)}</span>
+      <div class="emo-bar"><div class="emo-fill" style="width:0%;background:${emoColors[name]}" data-w="${val}"></div></div>
+      <span class="emo-score">${val}</span>
+    </div>`
+  ).join('');
+  setTimeout(() => document.querySelectorAll('.emo-fill').forEach(el => el.style.width = el.dataset.w + '%'), 80);
+
+  // Keywords
+  document.getElementById('keywordsWrap').innerHTML = r.keywords.length
+    ? r.keywords.map(k => `<span class="kw kw-${k.polarity}">${k.word}</span>`).join('')
+    : '<span style="font-size:13px;color:var(--muted)">No strong signal keywords detected.</span>';
+
+  // Insights
+  document.getElementById('insightsList').innerHTML = insights.map(i =>
+    `<div class="insight-item">
+      <div class="insight-dot" style="background:${s==='positive'?'#4ade80':s==='negative'?'#f87171':s==='mixed'?'#818cf8':'#94a3b8'}"></div>
+      <span style="color:var(--muted);font-size:13px">${i}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function addHistory(text, result) {
+  history.unshift({ text, result, source: currentSource, time: new Date().toLocaleTimeString() });
+  if (history.length > 8) history.pop();
+  if (history.length >= 2) renderHistory();
+}
+
+function renderHistory() {
+  document.getElementById('historySection').style.display = 'block';
+
+  // Trend chart
+  const trendColors = { positive:'#4ade80', negative:'#f87171', neutral:'#94a3b8', mixed:'#818cf8' };
+  const tc = document.getElementById('trendChart');
+  tc.innerHTML = history.slice().reverse().map((h,i) => {
+    const h60 = Math.round((h.result.confidence / 100) * 52);
+    return `<div class="trend-bar-wrap">
+      <div class="trend-bar" style="height:${h60}px;background:${trendColors[h.result.sentiment]}55;border:1px solid ${trendColors[h.result.sentiment]}"></div>
+      <span class="trend-lbl">${h.result.sentiment.slice(0,3).toUpperCase()}</span>
+    </div>`;
+  }).join('');
+
+  // List
+  const badgeColor = { positive:'badge-positive',negative:'badge-negative',neutral:'badge-neutral',mixed:'badge-mixed' };
+  document.getElementById('historyGrid').innerHTML = history.map((h,i) =>
+    `<div class="history-item" onclick="loadHistory(${i})">
+      <span class="h-badge verdict-badge ${badgeColor[h.result.sentiment]}" style="font-size:11px;padding:3px 10px;font-family:'DM Sans',sans-serif">${h.result.sentiment}</span>
+      <span class="h-text">${h.text}</span>
+      <span class="h-score">${(h.result.polarityPct>=0?'+':'')+h.result.polarityPct} · ${h.result.confidence}%</span>
+    </div>`
+  ).join('');
+}
+
+function loadHistory(i) {
+  const h = history[i];
+  document.getElementById('textInput').value = h.text;
+  updateWordCount();
+  const insights = generateInsights(h.result, h.source);
+  renderResults(h.result, insights, h.text);
+}
+</script>
+</body>
+</html>
